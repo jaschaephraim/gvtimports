@@ -18,7 +18,7 @@ func main() {
 	}
 
 	pkgs := []*build.Package{}
-	pkgs, err = setPackage(pkgs, ".", pwd)
+	pkgs, err = addPackages(pkgs, ".", pwd)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -37,7 +37,7 @@ func main() {
 	}
 }
 
-func setPackage(pkgs []*build.Package, path string, srcDir string) ([]*build.Package, error) {
+func addPackages(pkgs []*build.Package, path string, srcDir string) ([]*build.Package, error) {
 	pkg, err := build.Import(path, srcDir, 0)
 	if err == nil {
 		pkgs = append(pkgs, pkg)
@@ -50,7 +50,7 @@ func setPackage(pkgs []*build.Package, path string, srcDir string) ([]*build.Pac
 		for _, info := range filesInfo {
 			if info.IsDir() {
 				path := fmt.Sprintf("./%s", info.Name())
-				pkgs, err = setPackage(pkgs, path, srcDir)
+				pkgs, err = addPackages(pkgs, path, srcDir)
 				if err != nil {
 					return pkgs, err
 				}
