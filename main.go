@@ -1,7 +1,9 @@
 package main
 
 import (
+	"fmt"
 	"go/build"
+	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
@@ -10,19 +12,22 @@ import (
 )
 
 func main() {
-	pwd, err := filepath.Abs(filepath.Dir(os.Args[0]))
+	pwd, err := filepath.Abs(".")
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	pkg, err := build.Import(".", pwd, 0)
+	pkgs := []*build.Package{}
+	pkgs, err = setPackage(pkgs, ".", pwd)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	s := newSet()
-	addExternalImports(s, pkg.Imports, pkg.ImportPath)
-	addExternalImports(s, pkg.TestImports, pkg.ImportPath)
+	for _, pkg := range pkgs {
+		addExternalImports(s, pkg.Imports, pkg.ImportPath)
+		addExternalImports(s, pkg.TestImports, pkg.ImportPath)
+	}
 
 	for _, imp := range s.elements() {
 		cmd := exec.Command("gvt", "fetch", imp)
@@ -30,6 +35,29 @@ func main() {
 		cmd.Stderr = os.Stderr
 		cmd.Run()
 	}
+}
+
+func setPackage(pkgs []*build.Package, path string, srcDir string) ([]*build.Package, error) {
+	pkg, err := build.Import(path, srcDir, 0)
+	if err == nil {
+		pkgs = append(pkgs, pkg)
+
+		filesInfo, err := ioutil.ReadDir(pkg.Dir)
+		if err != nil {
+			return pkgs, err
+		}
+
+		for _, info := range filesInfo {
+			if info.IsDir() {
+				path := fmt.Sprintf("./%s", info.Name())
+				pkgs, err = setPackage(pkgs, path, srcDir)
+				if err != nil {
+					return pkgs, err
+				}
+			}
+		}
+	}
+	return pkgs, nil
 }
 
 func addExternalImports(s *set, imports []string, baseImport string) {
