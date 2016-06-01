@@ -25,8 +25,8 @@ func main() {
 
 	s := newSet()
 	for _, pkg := range pkgs {
-		addExternalImports(s, pkg.Imports, pkg.ImportPath)
-		addExternalImports(s, pkg.TestImports, pkg.ImportPath)
+		addExternalImports(s, pkg.Imports, pkgs)
+		addExternalImports(s, pkg.TestImports, pkgs)
 	}
 
 	for _, imp := range s.elements() {
@@ -41,29 +41,40 @@ func addPackages(pkgs []*build.Package, path string, srcDir string) ([]*build.Pa
 	pkg, err := build.Import(path, srcDir, 0)
 	if err == nil {
 		pkgs = append(pkgs, pkg)
+	}
 
-		filesInfo, err := ioutil.ReadDir(pkg.Dir)
-		if err != nil {
-			return pkgs, err
-		}
+	filesInfo, err := ioutil.ReadDir(pkg.Dir)
+	if err != nil {
+		return pkgs, err
+	}
 
-		for _, info := range filesInfo {
-			if info.IsDir() {
-				path := fmt.Sprintf("./%s", info.Name())
-				pkgs, err = addPackages(pkgs, path, srcDir)
-				if err != nil {
-					return pkgs, err
-				}
+	for _, info := range filesInfo {
+		fileName := info.Name()
+		isHidden := fileName[0] == 46
+		isVendor := fileName == "vendor"
+		if !isHidden && !isVendor && info.IsDir() {
+			pkgPath := fmt.Sprintf("%s/%s", path, fileName)
+			pkgs, err = addPackages(pkgs, pkgPath, srcDir)
+			if err != nil {
+				return pkgs, err
 			}
 		}
 	}
 	return pkgs, nil
 }
 
-func addExternalImports(s *set, imports []string, baseImport string) {
+func addExternalImports(s *set, imports []string, pkgs []*build.Package) {
 	for _, name := range imports {
 		imp, err := build.Import(name, ".", 0)
-		if err != nil || !imp.Goroot && !strings.HasPrefix(imp.ImportPath, baseImport) {
+
+		isInternal := false
+		for _, pkg := range pkgs {
+			if strings.HasPrefix(imp.ImportPath, pkg.ImportPath) {
+				isInternal = true
+			}
+		}
+
+		if err != nil || !imp.Goroot && !isInternal {
 			s.add(imp.ImportPath)
 		}
 	}
