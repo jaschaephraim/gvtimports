@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"go/build"
 	"io/ioutil"
@@ -12,6 +13,9 @@ import (
 )
 
 func main() {
+	list := flag.Bool("ls", false, "only list imports, don't fetch")
+	flag.Parse()
+
 	pwd, err := filepath.Abs(".")
 	if err != nil {
 		log.Fatal(err)
@@ -30,10 +34,14 @@ func main() {
 	}
 
 	for _, imp := range s.elements() {
-		cmd := exec.Command("gvt", "fetch", imp)
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		cmd.Run()
+		if *list {
+			fmt.Println(imp)
+		} else {
+			cmd := exec.Command("gvt", "fetch", imp)
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			cmd.Run()
+		}
 	}
 }
 
